@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
+from mcp.server.fastmcp.promts import base
 
 mcp = FastMCP("DocumentMCP", log_level="ERROR")
 
@@ -45,21 +46,43 @@ def edit_document(
 
 # A resource to return all doc id's
 @mcp.resource(
-    name="get_doc_ids",
-    description="Get all document ids from the document store.",
+    "docs://dcouments",
+    mime_type="application/json",
 )
-def get_doc_ids():
+def list_docs():
     return list(docs.keys())
 
 # A resource to return the contents of a particular doc
 @mcp.resource(
-    name="get_doc_contents",
-    description="Get the contents of a document from the document store.",
+    f"docs://documents/{doc_id}",
+    mime_type="text/plain"
 )
-def get_doc_contents(doc_id: str = Field(description="Id of the document to get the contents of")):
+def fetch_doc(doc_id: str):
     if doc_id not in docs:
         raise ValueError(f"Document {doc_id} not found")
     return docs[doc_id]
+
+@mcp.tool(
+    name="format",
+    description="Rewrite a document in markdown format.",
+)
+def format_document(
+    doc_id: str = Field(description="Id of the document to format")):
+    prompt = f"""
+    Rewrite the following document in markdown format:
+
+    <instructions>
+    - Rewrite the document in markdown format.
+    - Keep the document's structure and content.
+    - Use the document's title as the markdown file name.
+    </instructions>
+
+    <document>
+    {docs[doc_id]}
+    </document>
+    """
+    return [base.UserMessage(prompt)]
+
 
 # A tool to summarize a doc
 @mcp.tool(

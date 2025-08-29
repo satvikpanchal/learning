@@ -1,5 +1,7 @@
 import sys
 import asyncio
+import json
+from pydantic import AnyUrl
 from typing import Optional, Any
 from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters, types
@@ -56,11 +58,15 @@ class MCPClient:
 
     async def get_prompt(self, prompt_name, args: dict[str, str]):
         result = await self.session().get_prompt(prompt_name, args) 
-        return result.prompt
+        return result.messages
 
     async def read_resource(self, uri: str) -> Any:
-        result = await self.session().read_resource(uri)
-        return result.contents
+        result = await self.session().read_resource(AnyUrl(uri))
+        resource = result.contents[0]
+        if isinstance(resource, types.TextContent):
+            if resource.mime_type == "application/json":
+                return json.loads(resource.text)
+            return resource.text
 
     async def cleanup(self):
         await self._exit_stack.aclose()
